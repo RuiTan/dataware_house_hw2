@@ -1,9 +1,5 @@
 package top.guitoubing;
 
-import iot.jcypher.database.DBAccessFactory;
-import iot.jcypher.database.DBProperties;
-import iot.jcypher.database.DBType;
-import iot.jcypher.database.IDBAccess;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -12,9 +8,7 @@ import org.jsoup.select.Elements;
 import java.io.*;
 import java.sql.*;
 import java.util.ArrayList;
-import java.util.Properties;
-
-import static iot.jcypher.database.DBAccessFactory.createDBAccess;
+import java.util.Objects;
 
 /**
  * 思路：
@@ -28,6 +22,9 @@ import static iot.jcypher.database.DBAccessFactory.createDBAccess;
  */
 
 public class Main {
+
+    private static String folderPath = "D:\\datawarehouse";
+
 
     /**
      *
@@ -100,26 +97,30 @@ public class Main {
         // 连接到neo4j
         Connection con = ConnectToNeo4j();
 
-        File folder = new File("/Users/tanrui/Desktop/1");
+        File folder = new File(folderPath + "\\data_1.txt");
 
-        File out = new File("/Users/tanrui/Desktop/out.txt");
+        File out = new File(folderPath + "out.txt");
         FileWriter fileWriter = new FileWriter(out);
 
+        int count = 0;
+
         if (folder.exists()){
-            for (File file : folder.listFiles()){
+            for (File file : Objects.requireNonNull(folder.listFiles())){
                 // 解析文件
                 Document doc = Jsoup.parse(ParseFile(file));
                 MovieData data = ParseDoc(doc);
 
                 if (data == null){
-                    System.out.println("Null");
+                    count++;
+//                    System.out.println("Null");
                 }else {
 //                    System.out.println(data);
-                    fileWriter.write(data.toString());
+//                    fileWriter.write(data.toString());
                     Query(con, data);
                 }
             }
         }
+        System.out.print(count);
 
         fileWriter.close();
 
@@ -162,7 +163,7 @@ public class Main {
      */
     public static void Query(Connection connection, MovieData data) throws SQLException {
 
-        String query = "";
+        String query;
         PreparedStatement preparedStatement;
         ResultSet resultSet;
         int times;
@@ -301,7 +302,7 @@ public class Main {
             return "<html><head></head><body><h>Error</h></body></html>";
         }
         finally {
-            return html.toString();
+            return html;
         }
     }
 }
