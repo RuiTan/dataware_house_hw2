@@ -10,7 +10,7 @@
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
-      <module name="hw2_java" target="1.5" />
+      <module name="hw2_java" target="10" />
     </bytecodeTargetLevel>
   </component>
 </project>

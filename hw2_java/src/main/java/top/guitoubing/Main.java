@@ -1,15 +1,31 @@
 package top.guitoubing;
 
+import iot.jcypher.database.DBAccessFactory;
+import iot.jcypher.database.DBProperties;
+import iot.jcypher.database.DBType;
+import iot.jcypher.database.IDBAccess;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
 import java.io.*;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
+import java.sql.*;
 import java.util.ArrayList;
+import java.util.Properties;
+
+import static iot.jcypher.database.DBAccessFactory.createDBAccess;
+
+/**
+ * 思路：
+ * 当获取到一个MovieData信息时，即电影、导演和演员
+ * 三者应该有以下关系：
+ *      执导：导演->电影   关系应包含属性：次数
+ *      参演：演员->电影   关系应包含属性：次数
+ *      合作(双向关系)：导演<->演员    关系应包含属性：次数
+ * 每次添加三者时，询问数据库中是否有该导演、电影和演员，若没有则创建
+ * 而后为三者建立如上关系
+ */
 
 public class Main {
 
@@ -81,8 +97,8 @@ public class Main {
     }
 
     public static void main(String[] args) throws SQLException, IOException {
-        // TODO Auto-generated method stub
-        Connection con = DriverManager.getConnection("jdbc:neo4j://localhost:7474","neo4j","tanrui");
+        // 连接到neo4j
+        Connection con = ConnectToNeo4j();
 
         File folder = new File("/Users/tanrui/Desktop/1");
 
@@ -98,8 +114,9 @@ public class Main {
                 if (data == null){
                     System.out.println("Null");
                 }else {
-                    System.out.println(data);
+//                    System.out.println(data);
                     fileWriter.write(data.toString());
+                    Query(con, data);
                 }
             }
         }
@@ -126,6 +143,99 @@ public class Main {
 //            System.out.println(rs.getString(1));
 //        }
     }
+
+    /**
+     *
+     * @return 返回neo4j数据库连接
+     * @throws SQLException 抛出连接异常
+     */
+    public static Connection ConnectToNeo4j() throws SQLException {
+        return DriverManager.getConnection("jdbc:neo4j://localhost:7474","neo4j","tanrui");
+    }
+
+
+    /**
+     *
+     * @param connection 数据库连接
+     * @param data 数据对象
+     * @throws SQLException
+     */
+    public static void Query(Connection connection, MovieData data) throws SQLException {
+
+        String query = "";
+        PreparedStatement preparedStatement;
+        ResultSet resultSet;
+        int times;
+
+        boolean flagDir, flagAct, flagRel;
+
+        // 第一步：查询导演节点是否存在
+        query = "MATCH (n:Director) WHERE n.name={1} RETURN n";
+        preparedStatement = connection.prepareStatement(query);
+        preparedStatement.setString(1, data.getDirector());
+        resultSet = preparedStatement.getResultSet();
+        // 未找到该导演,创建一个节点
+        if (resultSet == null){
+            query = "CREATE (:Director{name:{1}})";
+            preparedStatement = connection.prepareStatement(query);
+            preparedStatement.setString(1, data.getDirector());
+            preparedStatement.executeUpdate();
+        }
+
+        /**
+         * 为节省空间，节点中不再存储电影
+         */
+//        // 第二步：查询电影节点是否存在
+//        query = "MATCH (n:Movie) WHERE n.name={1} RETURN n";
+//        preparedStatement = connection.prepareStatement(query);
+//        preparedStatement.setString(1, data.getTitle());
+//        resultSet = preparedStatement.getResultSet();
+//        // 未找到该电影,创建一个节点
+//        if (resultSet == null){
+//            query = "CREATE (:Movie{name:{1}})";
+//            preparedStatement = connection.prepareStatement(query);
+//            preparedStatement.setString(1, data.getTitle());
+//            preparedStatement.executeUpdate();
+//        }
+
+        // 第三步：查询演员节点是否存在
+        for (String actor : data.getActors()){
+            query = "MATCH (n:Actor) WHERE n.name={1} RETURN n";
+            preparedStatement = connection.prepareStatement(query);
+            preparedStatement.setString(1, actor);
+            resultSet = preparedStatement.getResultSet();
+            //未找到改演员,创建一个节点
+            if (resultSet == null){
+                query = "CREATE (:Actor{name:{1}})";
+                preparedStatement = connection.prepareStatement(query);
+                preparedStatement.setString(1, actor);
+                preparedStatement.executeUpdate();
+            }
+
+            // 第四步：对每一个演员节点查询演员与导演的合作关系是否存在
+            query = "MATCH (a:Actor)-[r:Coo]-(d:Director) WHERE a.name={1} and d.name={2} RETURN r";
+            preparedStatement = connection.prepareStatement(query);
+            preparedStatement.setString(1, actor);
+            preparedStatement.setString(2, data.getDirector());
+            resultSet = preparedStatement.getResultSet();
+            if (resultSet != null){
+                // 若关系存在，将合作次数增加1
+                times = resultSet.getInt("times") + 1;
+            }
+            else {
+                // 若关系不存在，合作次数置为1
+                times = 1;
+            }
+            query = "MATCH (a:Actor{name:{1}}),(d:Director{name:{2}}) MERGE (a)-[r:Coo{times:{3}}]->(d)";
+            preparedStatement = connection.prepareStatement(query);
+            preparedStatement.setString(1, actor);
+            preparedStatement.setString(2, data.getDirector());
+            preparedStatement.setInt(3, times);
+            preparedStatement.executeUpdate();
+        }
+
+    }
+
 
     /**
      *

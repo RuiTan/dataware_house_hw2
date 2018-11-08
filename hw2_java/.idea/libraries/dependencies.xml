@@ -3,6 +3,7 @@
     <CLASSES>
       <root url="jar://$PROJECT_DIR$/lib/neo4j-jdbc-2.0.1-SNAPSHOT-jar-with-dependencies.jar!/" />
       <root url="jar://$PROJECT_DIR$/lib/jsoup-1.11.3.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/jcypher-4.1.1.jar!/" />
     </CLASSES>
     <JAVADOC />
     <SOURCES />
